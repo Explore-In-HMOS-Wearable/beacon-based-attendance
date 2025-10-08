@@ -1,0 +1,1 @@
+export { DashboardView } from 'ets/view/DashboardView'

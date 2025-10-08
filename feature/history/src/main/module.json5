@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "history",
+    "type": "har",
+    "deviceTypes": [
+      "wearable"
+    ]
+  }
+}

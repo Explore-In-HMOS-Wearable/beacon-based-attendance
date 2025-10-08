@@ -1,0 +1,15 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "Please describe the basic information.",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "core": "file:../core",
+    "splash": "file:../feature/splash",
+    "history": "file:../feature/history",
+    "dashboard": "file:../feature/dashboard"
+  }
+}
+

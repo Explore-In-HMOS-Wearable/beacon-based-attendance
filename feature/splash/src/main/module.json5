@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "splash",
+    "type": "har",
+    "deviceTypes": [
+      "wearable"
+    ]
+  }
+}

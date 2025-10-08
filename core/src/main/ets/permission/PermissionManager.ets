@@ -1,0 +1,98 @@
+// PermissionManager.ts
+import { abilityAccessCtrl, bundleManager, common } from '@kit.AbilityKit';
+import type { Permissions } from '@kit.AbilityKit';
+
+interface PermissionRequestResult {
+  authResults: number[];
+  permissions?: Permissions[];
+}
+
+
+export class PermissionType {
+  static readonly MIC: Permissions = 'ohos.permission.MICROPHONE';
+  static readonly CAMERA: Permissions = 'ohos.permission.CAMERA';
+  static readonly LOCATION: Permissions = 'ohos.permission.LOCATION';
+  static readonly APPROX_LOCATION: Permissions = 'ohos.permission.APPROXIMATELY_LOCATION';
+  static readonly BLUETOOTH : Permissions = 'ohos.permission.ACCESS_BLUETOOTH';
+}
+
+/** Net sonuç: tek izin için ya Granted ya Denied */
+export enum PermissionResult {
+  Granted = 'GRANTED',
+  Denied = 'DENIED',
+}
+
+/** Projede kullandığın PermissionType varsa uyumlu olsun diye union kabul ediyoruz */
+export type OnePerm = string | Permissions;
+
+
+function toPerm(p: OnePerm): Permissions {
+  return p as Permissions; // HarmonyOS'ta Permissions efektif olarak string alias
+}
+
+function getSelfTokenId(): number {
+  const info = bundleManager.getBundleInfoForSelfSync(
+    bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION
+  );
+  return info.appInfo.accessTokenId;
+}
+
+export class PermissionManager {
+  private static instance?: PermissionManager;
+  private static readonly TAG = '[PermissionManager]';
+
+  static getInstance(): PermissionManager {
+    if (!PermissionManager.instance) {
+      PermissionManager.instance = new PermissionManager();
+      console.info(`${PermissionManager.TAG} instance created`);
+    }
+    return PermissionManager.instance;
+  }
+
+  /** Kullanıcıya dokunmadan tek iznin mevcut durumunu oku */
+  checkPermission(perm: OnePerm): PermissionResult {
+    const p = toPerm(perm);
+    const tokenId = getSelfTokenId();
+    const at = abilityAccessCtrl.createAtManager();
+    const st = at.checkAccessTokenSync(tokenId, p);
+
+    console.info(`${PermissionManager.TAG} checkPermission ${p} => ${st}`);
+    return st === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED ?
+    PermissionResult.Granted:
+    PermissionResult.Denied;
+  }
+
+  async requestPermission(
+    perm: OnePerm,
+    ctx: common.UIAbilityContext
+  ): Promise<PermissionResult> {
+    const current = this.checkPermission(perm);
+    if (current === PermissionResult.Granted){
+      return PermissionResult.Granted;
+    }
+
+    const p = toPerm(perm);
+    const at = abilityAccessCtrl.createAtManager();
+    console.info(`[PermissionManager] requestPermission -> ${p}`);
+
+    return new Promise<PermissionResult>((resolve, reject) => {
+      at.requestPermissionsFromUser(ctx, [p], (err, data) => {
+        if (err) {
+          console.error(`[PermissionManager] request error: code=${err.code}, msg=${err.message}`);
+          reject(err);
+          return;
+        }
+        // data PermissionRequestResult olarak tiplenir; any/unknown yok
+        const code = data?.authResults?.[0] ?? -1;
+        console.info(`[PermissionManager] user response ${p} => ${code}`);
+
+        resolve(
+          code === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED?
+          PermissionResult.Granted:
+          PermissionResult.Denied
+        );
+      });
+    });
+  }
+}
+export default PermissionManager;
