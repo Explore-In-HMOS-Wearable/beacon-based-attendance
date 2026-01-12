@@ -1,126 +1,135 @@
-import { ble, bluetooth } from '@kit.ConnectivityKit';
-import { hilog } from '@kit.PerformanceAnalysisKit';
-import { BusinessError } from '@kit.BasicServicesKit';
-import { LogManager } from '../logger/LogManager';
+import { ble } from '@kit.ConnectivityKit'
+import { hilog } from '@kit.PerformanceAnalysisKit'
+import { BusinessError } from '@kit.BasicServicesKit'
+
 
 export interface IBeaconData {
-  uuid: string;
-  major: number;
-  minor: number;
-  txPower: number;
-  rssi: number;
+  uuid: string
+  major: number
+  minor: number
+  txPower: number
+  rssi: number
 }
 
 export class BleManager {
-  private static instance: BleManager;
-  private beaconCallback: ((beacon: IBeaconData) => void) | null = null;
+  private static instance: BleManager
 
-  private constructor() {
-  }
+  private scanning: boolean = false
+  private beaconCallback?: (beacon: IBeaconData) => void
 
-  public static async getInstance(): Promise<BleManager> {
+  private constructor() {}
+
+
+  static getInstance(): BleManager {
     if (!BleManager.instance) {
-      BleManager.instance = new BleManager();
-      await BleManager.instance.init();
+      BleManager.instance = new BleManager()
     }
-    return BleManager.instance;
+    return BleManager.instance
   }
 
-  private async init(): Promise<void> {
+
+  private readonly scanHandler = (results: Array<ble.ScanResult>): void => {
+    results.forEach(result => {
+      const beacon = this.parseIBeacon(result.data, result.rssi)
+      if (beacon && this.beaconCallback) {
+        this.beaconCallback(beacon)
+      }
+    })
   }
 
-  public async enableBluetooth(): Promise<void> {
-    try {
-      bluetooth.enableBluetooth();
-    } catch (e) {
-      hilog.error(0, 'BLE', `Bluetooth enable error: ${JSON.stringify(e)}`);
-    }
-  }
 
-  public async disableBluetooth(): Promise<void> {
-    try {
-      bluetooth.disableBluetooth();
-    } catch (e) {
-      hilog.error(0, 'BLE', `Bluetooth disable error: ${JSON.stringify(e)}`);
-    }
-  }
-
-  public async startScan(): Promise<void> {
-    const state = bluetooth.getState();
-    if (state !== bluetooth.BluetoothState.STATE_ON) {
-      hilog.error(0, 'BLE', 'Bluetooth is not enabled.');
-      return;
+  startScan(): void {
+    if (this.scanning) {
+      hilog.warn(0, 'BleManager', 'Scan already running')
+      return
     }
 
-    ble.on('BLEDeviceFind', (results: Array<ble.ScanResult>) => {
-      results.forEach((result) => {
-        const beacon = this.parseIBeaconData(result.data, result.rssi);
-        if (beacon && this.beaconCallback) {
-          this.beaconCallback(beacon);
-        }
-      });
-    });
+    ble.off('BLEDeviceFind')
+    ble.on('BLEDeviceFind', this.scanHandler)
 
-    const scanOptions: ble.ScanOptions = {
+    const options: ble.ScanOptions = {
       interval: 0,
       dutyMode: ble.ScanDuty.SCAN_MODE_LOW_POWER,
-      matchMode: ble.MatchMode.MATCH_MODE_AGGRESSIVE,
-    };
+      matchMode: ble.MatchMode.MATCH_MODE_AGGRESSIVE
+    }
 
     try {
-      ble.startBLEScan([{ manufactureId: 0x004C }], scanOptions);
-      hilog.info(0, 'BLE', 'Scan started successfully.');
-    } catch (err) {
-      const code = (err as BusinessError).code;
-      hilog.error(0, 'BLE', `Scan failed: ${code} - ${JSON.stringify(err)}`);
+      ble.startBLEScan(
+        [{ manufactureId: 0x004C }],
+        options
+      )
+      this.scanning = true
+      hilog.info(0, 'BleManager', 'BLE scan started')
+    } catch (e) {
+      this.scanning = false
+      const err = e as BusinessError
+      hilog.error(
+        0,
+        'BleManager',
+        `BLE scan failed. code=${err.code}`
+      )
     }
   }
 
-  public async stopScan(): Promise<void> {
-    try {
-      ble.stopBLEScan();
-      hilog.info(0, 'BLE', 'Scan stopped.');
-    } catch (err) {
-      hilog.error(0, 'BLE', `Stop scan error: ${(err as BusinessError).code}`);
+  stopScan(): void {
+    if (!this.scanning) {
+      return
     }
+
+    try {
+      ble.stopBLEScan()
+    } catch {}
+
+    ble.off('BLEDeviceFind')
+    this.scanning = false
+    hilog.info(0, 'BleManager', 'BLE scan stopped')
   }
 
-  public setOnBeaconFoundCallback(callback: (beacon: IBeaconData) => void): void {
-    this.beaconCallback = callback;
+  setOnBeaconFoundCallback(
+    callback: (beacon: IBeaconData) => void
+  ): void {
+    this.beaconCallback = callback
   }
 
-  private parseIBeaconData(buffer: ArrayBuffer, rssi: number): IBeaconData | null {
-    const data = new Uint8Array(buffer);
-
+  private parseIBeacon(
+    buffer: ArrayBuffer,
+    rssi: number
+  ): IBeaconData | null {
+    const data = new Uint8Array(buffer)
     if (data.length < 30) {
-      return null;
+      return null
     }
 
     const isIBeacon =
-      data[0] === 0x02 && data[1] === 0x01 &&
-        data[4] === 0xFF && data[5] === 0x4C && data[6] === 0x00 &&
-        data[7] === 0x02 && data[8] === 0x15;
+      data[0] === 0x02 &&
+        data[1] === 0x01 &&
+        data[4] === 0xff &&
+        data[5] === 0x4c &&
+        data[6] === 0x00 &&
+        data[7] === 0x02 &&
+        data[8] === 0x15
 
     if (!isIBeacon) {
-      return null;
-    }
-
-    const uuidParts: string[] = [];
-    for (let i = 9; i < 25; i++) {
-      uuidParts.push(data[i].toString(16).padStart(2, '0'));
+      return null
     }
 
     const uuid = [
-      uuidParts.slice(0, 4).join(''),
-      uuidParts.slice(4, 6).join(''),
-      uuidParts.slice(6, 8).join(''),
-      uuidParts.slice(8, 10).join(''),
-      uuidParts.slice(10, 16).join('')
-    ].join('-');
+      data.slice(9, 13),
+      data.slice(13, 15),
+      data.slice(15, 17),
+      data.slice(17, 19),
+      data.slice(19, 25)
+    ]
+      .map(part =>
+      Array.from(part)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+      )
+      .join('-')
 
-    const major = (data[25] << 8) | data[26];
-    const minor = (data[27] << 8) | data[28];
-    const txPower = data[29] << 24 >> 24;
+    const major = (data[25] << 8) | data[26]
+    const minor = (data[27] << 8) | data[28]
+    const txPower = data[29] << 24 >> 24
 
     return {
       uuid,
@@ -128,14 +137,12 @@ export class BleManager {
       minor,
       txPower,
       rssi
-    };
-
+    }
   }
 
   measureDistance(rssi: number, txPower: number): number {
-    const distance = Math.pow(10, (txPower - rssi) / (10 * 3));
-    return distance
+    return Math.pow(10, (txPower - rssi) / 30)
   }
 }
 
-export default BleManager;
+export default BleManager

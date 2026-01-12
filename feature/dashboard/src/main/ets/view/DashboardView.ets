@@ -1,5 +1,4 @@
 import { NavigationManager } from 'core/src/main/ets/navigation/NavigationManager'
-import { NavigationConstants } from '../utils/constants/NavigationConstants'
 import { DashboardState } from '../state/DashboardState'
 import { DashboardStateStatus } from '../state/IDashboardState'
 import { DashboardViewModel } from '../viewmodel/DashboardViewModel'
@@ -38,12 +37,14 @@ export struct DashboardView {
                 Image($r('sys.media.ohos_ic_window_menu_waterfall'))
                   .width(24)
                   .height(24)
+                  .fillColor(Color.Black)
               }
-              .backgroundColor(Color.White)
+              .backgroundColor(Color.Transparent)
               .onClick(() => {
                 NavigationManager.getInstance().pageInfos.pushPath({ name: 'history' })
               })
               .margin({ bottom: 14 })
+
             }
 
             .width('100%')

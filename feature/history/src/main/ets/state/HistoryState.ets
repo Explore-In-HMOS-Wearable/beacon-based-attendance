@@ -20,7 +20,7 @@ export class HistoryState {
       isLoading: updates.isLoading ?? this.isLoading,
       error: updates.error === null ? undefined : (updates.error ?? this.error),
       message: updates.message === null ? undefined : (updates.message ?? this.message),
-      attandanceList: updates.attandanceList ?? this.attandanceList,
+      attandanceList: updates.attandanceList ?? this.attandanceList
     });
   }
 

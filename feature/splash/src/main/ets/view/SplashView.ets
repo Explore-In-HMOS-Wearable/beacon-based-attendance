@@ -1,5 +1,7 @@
 import { SplashState } from '../state/SplashState'
 import { SplashViewModel } from '../viewmodel/SplashViewModel'
+import { common } from '@kit.AbilityKit'
+
 
 @Component
 export struct SplashView {
@@ -11,11 +13,13 @@ export struct SplashView {
     this.viewModel.addListener((newState : SplashState) => {
       this.state = newState
     })
-    this.viewModel.init()
+    const uiContext = globalThis.getUIContext?.() as common.UIAbilityContext;
+
+    this.viewModel.init(uiContext)
   }
 
   build() {
-    NavDestination(){
+    NavDestination() {
       Column() {
         if (this.state.isLoading) {
           LoadingProgress()
@@ -38,7 +42,6 @@ export struct SplashView {
       .alignItems(HorizontalAlign.Center)
       .padding({ top: 24, bottom: 24 })
     }.hideBackButton(true)
-     .onReady((context : NavDestinationContext) => {})
   }
 
 }

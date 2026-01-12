@@ -10,9 +10,10 @@ The app is designed for schools, universities, and workplaces where manual check
 # Preview
 
 <div>
-  <img src="screenShots/attendance_not_in_range.png" width="24%">
-  <img src="screenShots/attendance_completed.png" width="24%">
-  <img src="screenShots/attendance_history.png" width="24%">
+  <img src="screenshots/attendance_not_in_range.png" width="24%">
+  <img src="screenshots/attendance_scanning.png" width="24%">
+  <img src="screenshots/attendance_completed.png" width="24%">
+  <img src="screenshots/attendance_history.png" width="24%">
 </div>
 
 # Use Cases
@@ -99,12 +100,11 @@ The app is designed for schools, universities, and workplaces where manual check
 - Continuous background scanning may affect **battery consumption**.
 - Internet connection is optional; attendance can be stored locally and synced later.
 
-## Supported Device
+## Supported Devices
 
-- HarmonyOS Smartwatches (Huawei Watch 5, GT Series, and newer models)
-- HarmonyOS version **5.1.0(18)** or later
+- Huawei Watch 5
 
 # License
 
-Smart Ad Beacon is distributed under the terms of the MIT License.
+Beacon Based Attendance is distributed under the terms of the MIT License.
 See the [LICENSE](./LICENSE) for more information.

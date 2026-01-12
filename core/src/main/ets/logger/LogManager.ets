@@ -34,35 +34,39 @@ export class LogManager {
     const prefix = `[${levelLabel}] [${timestamp}] [${tag}] `;
     const fullMessage = prefix + message;
 
-    for (let i = 0; i < fullMessage.length; i += LogManager.MAX_LOG_LENGTH) {
-      const part = fullMessage.substring(i, i + LogManager.MAX_LOG_LENGTH);
-      levelFn(LogManager.DOMAIN_ID, tag, part);
+    const maxLength: number = LogManager.MAX_LOG_LENGTH;
+    const domainId: number = LogManager.DOMAIN_ID;
+
+    for (let i = 0; i < fullMessage.length; i += maxLength) {
+      const part: string = fullMessage.substring(i, i + maxLength);
+      levelFn(domainId, tag, part);
     }
   }
 
+
   static debug(tag: string, message: string): void {
-    if (!LogManager.isLevelEnabled('debug')){
+    if (!LogManager.isLevelEnabled('debug')) {
       return;
     }
     LogManager.chunkAndLog(hilog.debug, 'DEBUG', tag, message);
   }
 
   static info(tag: string, message: string): void {
-    if (!LogManager.isLevelEnabled('info')){
+    if (!LogManager.isLevelEnabled('info')) {
       return;
     }
     LogManager.chunkAndLog(hilog.info, 'INFO', tag, message);
   }
 
   static warn(tag: string, message: string): void {
-    if (!LogManager.isLevelEnabled('warn')){
+    if (!LogManager.isLevelEnabled('warn')) {
       return;
     }
     LogManager.chunkAndLog(hilog.warn, 'WARN', tag, message);
   }
 
   static error(tag: string, message: string): void {
-    if (!LogManager.isLevelEnabled('error')){
+    if (!LogManager.isLevelEnabled('error')) {
       return;
     }
     LogManager.chunkAndLog(hilog.error, 'ERROR', tag, message);
@@ -78,6 +82,9 @@ export class LogManager {
         return LogManager.warn(tag, message);
       case 'error':
         return LogManager.error(tag, message);
+      default:
+        return LogManager.debug(tag, message);
+
     }
   }
 }

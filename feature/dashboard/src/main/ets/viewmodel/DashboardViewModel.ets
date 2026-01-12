@@ -1,7 +1,7 @@
 import { BleManager, IBeaconData } from 'core/src/main/ets/bluetooth/BleManager';
 import { DashboardState } from '../state/DashboardState';
 import { StorageManager } from 'core/src/main/ets/storage/StorageManager'
-import { BusinessError, } from '@kit.BasicServicesKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { common } from '@kit.AbilityKit';
 import { CacheConstants } from '../utils/constants/CacheConstants';
 import { AttandanceListModel } from '../model/AttandanceListModel';
@@ -15,7 +15,6 @@ export class DashboardViewModel {
   private _state: DashboardState = DashboardState.initial()
   private listeners: Array<(state: DashboardState) => void> = []
   private readonly TAG: string = 'DashboardViewModel';
-  context = getContext(this) as common.UIAbilityContext;
 
   get state(): DashboardState {
     return this._state
@@ -36,11 +35,11 @@ export class DashboardViewModel {
 
   async init(): Promise<void> {
     this.state = this.state.with({ isLoading: true })
-    const storage = await StorageManager.getInstance()
+    const storage = StorageManager.getInstance()
     const currentDate = new Date(Date.now())
     const attandanceToday = await storage.getModelWithExpiry(CacheConstants.attandanceToday, AttandanceModel.fromJson)
 
-    if (attandanceToday != null && attandanceToday.startDate != null &&
+    if (attandanceToday !== null && attandanceToday.startDate !== null &&
       (currentDate.getDay() > attandanceToday.startDate.getDay())) {
       await storage.remove(CacheConstants.attandanceToday)
       this.state = this.state.with({ todayAttandance: null })
@@ -57,7 +56,7 @@ export class DashboardViewModel {
     }
 
     const ble = await BleManager.getInstance()
-    const storage = await StorageManager.getInstance()
+    const storage = StorageManager.getInstance()
 
     let resolved: boolean = false
 
@@ -88,7 +87,7 @@ export class DashboardViewModel {
 
         const todayKey = formatDate(currentDate)!
 
-        let attandanceToday = await storage.getModelWithExpiry(
+        const attandanceToday = await storage.getModelWithExpiry(
           CacheConstants.attandanceToday,
           AttandanceModel.fromJson
         )
@@ -101,10 +100,9 @@ export class DashboardViewModel {
 
           history = new AttandanceListModel([])
         }
-        let list = history.attandanceList ?? []
+        const list = history.attandanceList ?? []
 
-        // History'de bugüne ait kayıt ara
-        let existing = list.find((item) =>
+        const existing = list.find((item) =>
         item.beaconId === beaconData.uuid &&
           formatDate(item.startDate) === todayKey
         )
@@ -158,30 +156,35 @@ export class DashboardViewModel {
       }
     })
 
-    await ble.startScan()
-      .then(() => {
-        this.state = this.state.with({
-          status: DashboardStateStatus.scanning,
-          message: 'Scanning'
-        })
+    try {
+      ble.startScan()
 
-        setTimeout(() => {
-          if (!resolved && this.state.status === DashboardStateStatus.scanning) {
-            this.state = this.state.with({
-              status: DashboardStateStatus.completed,
-              message: 'Not in range',
-              isLoading: false
-            })
-          }
-        }, 15000)
+      this.state = this.state.with({
+        status: DashboardStateStatus.scanning,
+        message: 'Scanning'
       })
-      .catch(async (e: BusinessError) => {
-        this.state = this.state.with({
-          status: DashboardStateStatus.error,
-          error: `${e}`
-        })
-        LogManager.error(this.TAG, `start scan error ${e} / ${e.message}`)
-        await ble.stopScan()
+
+      setTimeout(() => {
+        if (!resolved && this.state.status === DashboardStateStatus.scanning) {
+          this.state = this.state.with({
+            status: DashboardStateStatus.completed,
+            message: 'Not in range',
+            isLoading: false
+          })
+        }
+      }, 15000)
+
+    } catch (e) {
+      const error = e as BusinessError
+
+      this.state = this.state.with({
+        status: DashboardStateStatus.error,
+        error: `${error}`
       })
+
+      LogManager.error(this.TAG, `start scan error ${error} / ${error.message}`)
+      ble.stopScan()
+    }
+
   }
 }

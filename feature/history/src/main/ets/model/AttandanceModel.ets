@@ -3,7 +3,7 @@ import { BaseModel } from 'core/src/main/ets/base/BaseModel';
 export interface AttandanceModelJson {
   beaconId: string,
   startDate: Date | null,
-  endDate: Date | null,
+  endDate: Date | null
 }
 
 export class AttandanceModel implements BaseModel {
@@ -25,7 +25,7 @@ export class AttandanceModel implements BaseModel {
     return {
       beaconId: this.beaconId,
       startDate: this.startDate,
-      endDate: this.endDate,
+      endDate: this.endDate
     };
   }
 

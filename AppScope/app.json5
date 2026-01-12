@@ -1,6 +1,6 @@
 {
   "app": {
-    "bundleName": "com.hmosdemos.beaconbasedattendance",
+    "bundleName": "com.hmosdemos.wearable.beacon_based_attendance",
     "vendor": "hmosdemos",
     "versionCode": 1000000,
     "versionName": "1.0.0",

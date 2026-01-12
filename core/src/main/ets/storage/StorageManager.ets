@@ -1,216 +1,137 @@
-import storage from '@ohos.data.storage';
-import { BusinessError } from '@kit.BasicServicesKit';
-import { BaseModel } from '../base/BaseModel';
-import { Duration } from '../base/DurationModel';
-import { hilog } from '@kit.PerformanceAnalysisKit';
-
-export interface StorageDataExpiryModel<TJson> {
-  data: TJson;
-  expireAt: number;
-}
-
+import preferences from '@ohos.data.preferences'
+import { BusinessError } from '@kit.BasicServicesKit'
+import { BaseModel } from '../base/BaseModel'
+import { Duration } from '../base/DurationModel'
+import { hilog } from '@kit.PerformanceAnalysisKit'
+import { common } from '@kit.AbilityKit'
 
 interface StorageDataModel {
-  data: object;
-  expireAt: number;
+  data: object
+  expireAt: number
 }
 
-
 export class StorageManager {
-  private static instance: StorageManager;
-  private storage?: storage.Storage;
+  private static instance: StorageManager
+  private pref?: preferences.Preferences
+  private initialized = false
 
   private constructor() {}
 
-  static async getInstance(): Promise<StorageManager> {
+  static getInstance(): StorageManager {
     if (!StorageManager.instance) {
-      StorageManager.instance = new StorageManager();
-      await StorageManager.instance.init()
+      StorageManager.instance = new StorageManager()
     }
-    return StorageManager.instance;
+    return StorageManager.instance
   }
 
-  //init
-  private async init() {
-    const context = getContext(this);
-    const path = context.filesDir;
+  async init(context: common.UIAbilityContext): Promise<void> {
+    if (this.initialized) {
+      return
+    }
+
     try {
-      this.storage = await storage.getStorage(path);
-    } catch (err) {
-      console.error('Storage init error:', err);
+      this.pref = await preferences.getPreferences(
+        context.getApplicationContext(),
+        'smart_ad_beacon_storage'
+      )
+      this.initialized = true
+      hilog.info(0, 'StorageManager', 'Preferences initialized')
+    } catch (e) {
+      console.error('Preferences init failed', (e as BusinessError).message)
+    }
+  }
+
+  private ensureInit() {
+    if (!this.pref) {
+      throw new Error('StorageManager not initialized')
     }
   }
 
   async set(key: string, value: string): Promise<void> {
-    if (!this.storage) {
-      return;
-    }
-    await this.storage.put(key, value);
+    this.ensureInit()
+    this.pref!.putSync(key, value)
+    await this.pref!.flush()
   }
 
   async get(key: string): Promise<string | null> {
-    if (!this.storage) {
-      return null;
-    }
-
-    return new Promise((resolve) => {
-      this.storage!.get(key, '', (err: BusinessError | null, value: string) => {
-        if (err) {
-          console.error('Storage get error:', err.message);
-          resolve(null);
-        } else {
-          resolve(value || null);
-        }
-      });
-    });
+    this.ensureInit()
+    const val = this.pref!.getSync(key,'') as string
+    return val.length > 0 ? val : null;
   }
 
   async remove(key: string): Promise<void> {
-    if (!this.storage) {
-      return;
-    }
-    await this.storage.delete(key)
+    this.ensureInit()
+    this.pref!.deleteSync(key)
+    await this.pref!.flush()
   }
 
   async clear(): Promise<void> {
-    if (!this.storage) {
-      return;
-    }
-    await this.storage.clear();
+    this.ensureInit()
+    this.pref!.clearSync()
+    await this.pref!.flush()
   }
 
-  public async saveModel<T extends BaseModel>(
-    key: string,
-    model: T
-  ): Promise<void> {
-    const jsonString = JSON.stringify(model.toJson());
-
-    return new Promise((resolve, reject) => {
-      this.storage?.put(String(key), jsonString, (err) => {
-        if (err) {
-          console.error(`saveModel failed for key: ${key}`, err.message);
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-
+  async saveModel<T extends BaseModel>(key: string, model: T): Promise<void> {
+    this.ensureInit()
+    this.pref!.putSync(key, JSON.stringify(model.toJson()))
+    await this.pref!.flush()
   }
 
-  public async saveModelWithExpiry<T extends BaseModel>(
+  async saveModelWithExpiry<T extends BaseModel>(
     key: string,
     model: T,
     duration: Duration
   ): Promise<void> {
+    this.ensureInit()
+
     const wrapper: StorageDataModel = {
       data: model.toJson(),
       expireAt: Date.now() + duration.inMilliseconds()
-    };
+    }
 
-    const jsonString = JSON.stringify(wrapper);
-
-
-    return new Promise((resolve, reject) => {
-      this.storage?.put(String(key), jsonString, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+    this.pref!.putSync(key, JSON.stringify(wrapper))
+    await this.pref!.flush()
   }
 
-  public async getModelWithExpiry<TModel, TJson>(
+  async getModelWithExpiry<TModel, TJson>(
     key: string,
     fromJson: (json: TJson) => TModel
   ): Promise<TModel | null> {
-    return new Promise((resolve) => {
-      this.storage?.get(String(key), '', async (err, value) => {
-        if (err || !value || typeof value !== 'string') {
-          resolve(null);
-          return;
-        }
+    this.ensureInit()
 
-        try {
-          const parsed: StorageDataExpiryModel<TJson> = JSON.parse(value);
-          hilog.info(0,'DashboardViewModel',`expireAt: ${parsed.expireAt} now: ${Date.now()}}`)
-          if (Date.now() > parsed.expireAt) {
-            //await this.storage?.deleteSync(key)
-            resolve(null);
-            return;
-          }
-          resolve(fromJson(parsed.data));
+    const value = this.pref!.getSync(key, '') as string
+    if (!value) {
+      return null
+    }
 
-        } catch (e) {
-          console.error(`getJson parse error for key: ${key}`, e);
-          resolve(null);
-        }
-      });
-    });
+    try {
+      const parsed = JSON.parse(value) as StorageDataModel
+      if (Date.now() > parsed.expireAt) {
+        this.pref!.deleteSync(key)
+        await this.pref!.flush()
+        return null
+      }
+      return fromJson(parsed.data as TJson)
+    } catch {
+      return null
+    }
   }
 
-  public async getModel<TModel, TJson>(
+  async getModel<TModel, TJson>(
     key: string,
     fromJson: (json: TJson) => TModel
   ): Promise<TModel | null> {
-    return new Promise((resolve) => {
-      this.storage?.get(String(key), '', (err, value) => {
-        if (err || !value || typeof value !== 'string') {
-          resolve(null);
-          return;
-        }
+    this.ensureInit()
 
-        try {
-          const parsed: TJson = JSON.parse(value);
-          resolve(fromJson(parsed));
-        } catch (e) {
-          console.error(`getModel parse error for key: ${key}`, e);
-          resolve(null);
-        }
-      });
-    });
+    const value = this.pref!.getSync(key, '') as string
+    if (!value) {
+      return null
+    }
+
+    try {
+      return fromJson(JSON.parse(value) as TJson)
+    } catch {
+      return null
+    }
   }
-
-  public async saveJson(key: string, json : object): Promise<void> {
-    const jsonString = JSON.stringify(json);
-    return new Promise((resolve, reject) => {
-      this.storage?.put(key, jsonString, (err) => {
-        if (err) {
-          console.error(`saveJson failed for key: ${key}`, err.data);
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  public async getJson<TModel, TJson>(
-    key: string,
-    fromJson: (json: TJson) => TModel
-  ): Promise<TModel | null> {
-    return new Promise((resolve) => {
-      this.storage?.get(String(key), '', (err, value) => {
-        if (err || !value || typeof value !== 'string') {
-          resolve(null);
-          return;
-        }
-
-        try {
-          const parsed: TJson = JSON.parse(value);
-          resolve(fromJson(parsed));
-        } catch (e) {
-          console.error(`getJson parse error for key: ${key}`, e);
-          resolve(null);
-        }
-      });
-    });
-  }
-
-
-
 }
-
-export default StorageManager;

@@ -16,7 +16,7 @@ export class SplashState {
     return new SplashState({
       isLoading: updates.isLoading ?? this.isLoading,
       error: updates.error === null ? undefined : (updates.error ?? this.error),
-      message: updates.message === null ? undefined : (updates.message ?? this.message),
+      message: updates.message === null ? undefined : (updates.message ?? this.message)
     });
   }
 
@@ -24,7 +24,7 @@ export class SplashState {
     return new SplashState({
       isLoading: false,
       error: null,
-      message: '',
+      message: ''
     });
   }
 }

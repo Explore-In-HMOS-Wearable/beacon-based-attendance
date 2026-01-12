@@ -16,7 +16,7 @@ export struct HistoryView {
   }
 
   private formatDate(date: Date | string | number | null): string {
-    if (!date){
+    if (!date) {
       return '-'
     }
 
@@ -28,7 +28,7 @@ export struct HistoryView {
   }
 
   private formatTime(date: Date | string | number | null): string {
-    if (!date){
+    if (!date) {
       return '-'
     }
 
@@ -84,8 +84,10 @@ export struct HistoryView {
                 .padding(12)
                 .margin({ bottom: 12 })
               }
-            }, (item: AttandanceModel) => item.startDate?.toString() ?? Math.random().toString())
+            }, (item: AttandanceModel) => item.startDate?.toString() ?? Date.now().toString())
           }
+          .width('100%')
+          .height('100%')
 
         }
       }

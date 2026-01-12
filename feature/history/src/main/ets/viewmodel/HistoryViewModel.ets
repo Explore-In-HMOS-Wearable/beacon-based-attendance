@@ -1,6 +1,5 @@
 import { HistoryState } from '../state/HistoryState';
-import { common } from '@kit.AbilityKit';
-import StorageManager from 'core/src/main/ets/storage/StorageManager';
+import { StorageManager } from 'core/src/main/ets/storage/StorageManager';
 import { AttandanceListModel } from '../model/AttandanceListModel';
 import { CacheConstants } from '../constants/CacheConstants';
 
@@ -8,7 +7,6 @@ export class HistoryViewModel {
   private _state: HistoryState = HistoryState.initial();
   private listeners: Array<(state: HistoryState) => void> = [];
   private readonly TAG = 'HistoryViewModel';
-  context = getContext(this) as common.UIAbilityContext;
 
   get state(): HistoryState {
     return this._state;
@@ -30,8 +28,9 @@ export class HistoryViewModel {
   async init(): Promise<void> {
     this.state = this.state.with({ isLoading: true });
 
-    const store = await StorageManager.getInstance()
-    let data = await store.getModelWithExpiry(CacheConstants.attandanceList,AttandanceListModel.fromJson)
+    const store = StorageManager.getInstance() as StorageManager
+    const data = await store.getModelWithExpiry(CacheConstants.attandanceList,
+      AttandanceListModel.fromJson) as AttandanceListModel
     this.state = this.state.with({attandanceList: data?.attandanceList})
     this.state = this.state.with({isLoading: false})
 

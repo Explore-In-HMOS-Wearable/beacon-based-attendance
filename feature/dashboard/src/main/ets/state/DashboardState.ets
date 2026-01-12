@@ -23,7 +23,7 @@ export class DashboardState {
       error: updates.error === null ? undefined : (updates.error ?? this.error),
       message: updates.message === null ? undefined : (updates.message ?? this.message),
       todayAttandance: updates.todayAttandance ?? this.todayAttandance,
-      status: updates.status ?? this.status,
+      status: updates.status ?? this.status
     });
   }
 
@@ -33,7 +33,7 @@ export class DashboardState {
       error: null,
       message: 'Touch',
       todayAttandance: null,
-      status: DashboardStateStatus.initial,
+      status: DashboardStateStatus.initial
     });
   }
 }
